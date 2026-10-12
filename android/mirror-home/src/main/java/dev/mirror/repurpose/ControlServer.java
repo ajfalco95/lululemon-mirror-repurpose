@@ -149,6 +149,54 @@ public final class ControlServer extends NanoHTTPD {
                 return response(Response.Status.OK, bootstrap());
             }
             if (Method.GET.equals(session.getMethod())
+                    && "/api/v1/camera/latest.jpg".equals(uri)) {
+                byte[] jpeg = CameraFrameStore.latest();
+
+                if (jpeg == null) {
+                    return error(
+                            Response.Status.SERVICE_UNAVAILABLE,
+                            "Camera frame not available");
+                }
+
+                Response result = newFixedLengthResponse(
+                        Response.Status.OK,
+                        "image/jpeg",
+                        new ByteArrayInputStream(jpeg),
+                        jpeg.length);
+
+                result.addHeader("Cache-Control", "no-store");
+                return result;
+            }
+
+            if (Method.GET.equals(session.getMethod())
+                    && "/api/v1/camera/live.h264".equals(uri)) {
+
+                Response result = newChunkedResponse(
+                        Response.Status.OK,
+                        "video/h264",
+                        H264StreamStore.openStream());
+
+                result.addHeader("Cache-Control", "no-store");
+                return result;
+            }
+
+            if (Method.GET.equals(session.getMethod())
+                    && "/api/v1/camera/stream".equals(uri)) {
+                String boundary = "frame";
+                String body =
+                        "--" + boundary + "\r\n"
+                        + "Content-Type: image/jpeg\r\n"
+                        + "Content-Length: 4\r\n\r\n"
+                        + "TEST\r\n"
+                        + "--" + boundary + "--\r\n";
+
+                return newChunkedResponse(
+                        Response.Status.OK,
+                        "multipart/x-mixed-replace; boundary=" + boundary,
+                        new ByteArrayInputStream(body.getBytes()));
+            }
+
+            if (Method.GET.equals(session.getMethod())
                     && "/api/v1/status".equals(uri)
                     && (isLoopback(session) || authorized(session))) {
                 return response(Response.Status.OK, status());
